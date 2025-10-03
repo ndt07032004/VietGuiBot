@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import json
 from src.llm_rag import generate_response
 from src.asr import transcribe_audio, record_audio
 from src.tts import synthesize_speech
@@ -9,34 +8,44 @@ from src.logger import logger
 import io
 import asyncio
 import os
+import json
 
 app = FastAPI()
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
-def create_app(config, rag_chain, asr_model, tts_model):
-    API_KEY = config['human_integration']['api_key']
-
+def create_app(config, qa_chain, asr_model, tts_model):
     @app.get("/")
     async def index():
-        with open('static/chat.html', 'r') as f:
+        with open('static/chat.html', 'r', encoding="utf-8") as f:
             return HTMLResponse(f.read())
+
+    # ✅ Sửa lại: trả JSON thay vì StreamingResponse
+    @app.get("/get")
+    async def get_response(request: Request):
+        msg = request.query_params.get("msg", "")
+        if not msg:
+            return JSONResponse({"error": "No message provided"})
+        response = generate_response(qa_chain, msg)
+         # ✅ Log input & output
+        logger.info(f"[GET] User: {msg}")
+        logger.info(f"[GET] Bot: {response}")
+        return JSONResponse({"answer": response})
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
-        auth = request.headers.get('Authorization')
-        if auth != f"Bearer {API_KEY}":
-            return {"error": "Unauthorized"}, 401
-
         data = await request.json()
         messages = data.get('messages', [])
         input_text = messages[-1]['content'] if messages else ""
-
-        async def generate():
-            async for chunk in generate_response(rag_chain, input_text):
-                yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
-
-        return StreamingResponse(generate(), media_type="text/event-stream")
+        response = generate_response(qa_chain, input_text)
+        logger.info(f"[POST] User: {input_text}")
+        logger.info(f"[POST] Bot: {response}")
+        return {"choices": [{"message": {"content": response}}]}
 
     @app.post("/asr")
     async def asr_endpoint():
@@ -50,7 +59,6 @@ def create_app(config, rag_chain, asr_model, tts_model):
         text = data['text']
         output_path = f"./audio/response_{hash(text)}.wav"
         await synthesize_speech(tts_model, text, output_path)
-
         with open(output_path, 'rb') as f:
             return StreamingResponse(io.BytesIO(f.read()), media_type="audio/wav")
 
@@ -60,7 +68,8 @@ def create_app(config, rag_chain, asr_model, tts_model):
         while True:
             data = await websocket.receive_json()
             input_text = data.get('message')
-            async for chunk in generate_response(rag_chain, input_text):
-                await websocket.send_json({"chunk": chunk})
+            
+            response = generate_response(qa_chain, input_text)
+            await websocket.send_json({"chunk": response})
 
     return app
