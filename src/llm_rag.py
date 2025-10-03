@@ -69,6 +69,9 @@ def init_rag(config):
 
 
 def generate_response(rag_chain, input_text: str):
-    # invoke thay vì run → tránh lỗi input_documents
     response = rag_chain.invoke({"input": input_text})
-    return response.get("answer", response)
+    if isinstance(response, dict):
+        # lấy key phổ biến nhất
+        return response.get("answer") or response.get("output") or str(response)
+    return str(response)
+
