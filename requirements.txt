@@ -1,17 +1,17 @@
-fastapi==0.115.0  # Thay Flask cho async
-uvicorn==0.30.0  # Server cho FastAPI
-realtimestt==1.0.0  # Cho ASR real-time (pip install realtimestt)
-vixtts==0.1.0  # TTS tiếng Việt (pip install từ HuggingFace hoặc git clone)
+fastapi==0.115.0
+uvicorn==0.30.0
 langchain==0.2.0
 langchain-pinecone==0.1.0
 langchain-ollama==0.1.0
 pinecone-client==3.2.0
-huggingface-hub==0.20.0
-transformers==4.35.0
-faster-whisper==1.0.0
+sentence-transformers==2.2.0
+whisper==1.1.10  # ASR fallback
+SpeechRecognition==3.10.0  # Fallback
+webrtcvad==2.0.10  # VAD
+facebook-mms-tts-vie==0.1.0  # TTS
 torch==2.1.0
 python-dotenv==1.0.0
 pyaudio==0.2.11
-websockets==12.0  # Cho streaming
-sentence-transformers==2.2.0
-redis==5.0.0  # Optional caching
+websockets==12.0
+redis==5.0.0
+transformers==4.35.0  # Cho TTS fallback

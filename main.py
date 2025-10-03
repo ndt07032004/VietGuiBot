@@ -31,7 +31,7 @@ default_config = {
     },
     "pinecone": {
         "index_name": "digital-hunman",
-        "api_key": "YOUR_API_KEY_HERE"
+        "api_key": "pcsk_6BZpRA_QgbTMLShrvgfY8PC1w3fzYkDaQB39144GvKCCSNZgGDjM5JjjYDtmviNVxH8KdZ"
     },
     "human_integration": {"api_key": "simple_auth_key_123", "streaming": True, "websocket": True},
     "interfaces": {"text": True, "voice": True, "digital_hunman": True},
