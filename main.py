@@ -12,16 +12,45 @@ import uvicorn  # Server cho FastAPI
 load_dotenv()
 
 logger = setup_logger("VietnameseDigitalBot")
-config_path = "system.conf"
+config_path = "system.json"
+
+# Config mặc định (nếu chưa có file)
+default_config = {
+    "server": {"host": "0.0.0.0", "port": 8080, "debug": True},
+    "llm": {
+        "model": "qwen2:7b",
+        "base_url": "http://localhost:11434",
+        "system_prompt": "Bạn là TourGuideBot, hướng dẫn viên du lịch Việt Nam.",
+        "streaming": True,
+    },
+    "asr": {"model": "small", "language": "vi", "device": "cpu"},
+    "tts": {
+        "model": "facebook/mms-tts-vie",
+        "output_dir": "./audio/",
+        "streaming": True,
+    },
+    "pinecone": {
+        "index_name": "digital-hunman",
+        "api_key": "YOUR_API_KEY_HERE"
+    },
+    "human_integration": {"api_key": "simple_auth_key_123", "streaming": True, "websocket": True},
+    "interfaces": {"text": True, "voice": True, "digital_hunman": True},
+}
 
 # Load config với error handling
-try:
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = json.load(f)
-    logger.info("Config loaded successfully")
-except Exception as e:
-    logger.error(f"Config load error: {e}")
-    raise
+if not os.path.exists(config_path):
+    logger.warning(f"{config_path} không tồn tại, tạo file mặc định...")
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(default_config, f, indent=2, ensure_ascii=False)
+    config = default_config
+else:
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        logger.info("Config loaded successfully")
+    except Exception as e:
+        logger.error(f"Config load error: {e}")
+        raise
 
 logger.info("Khởi động Vietnamese Digital Bot với cải tiến real-time...")
 
@@ -41,4 +70,4 @@ app = create_app(config, rag_chain, asr_model, tts_model)
 
 # Chạy server với uvicorn (hỗ trợ async, mượt hơn Flask)
 if __name__ == "__main__":
-    uvicorn.run(app, host=config['server']['host'], port=config['server']['port'])
+    uvicorn.run(app, host=config["server"]["host"], port=config["server"]["port"])
