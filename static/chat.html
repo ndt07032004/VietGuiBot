@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VietGuiBot Chat</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #chat-container { max-width: 600px; margin: 20px auto; font-family: Arial, sans-serif; }
+        #chat-messages { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        .user-message { text-align: right; color: blue; margin: 5px 0; }
+        .bot-message { text-align: left; color: green; margin: 5px 0; }
+        #user-input { width: 70%; padding: 5px; }
+        button { padding: 5px 10px; margin-left: 5px; }
+    </style>
 </head>
 <body>
     <div id="chat-container">
@@ -16,35 +24,38 @@
 
     <script>
         $(document).ready(function() {
-            function addMessage(message, isUser, audioData = null) {
+            function addMessage(message, isUser) {
                 const div = $('<div>').addClass(isUser ? 'user-message' : 'bot-message').text(message);
-                if (audioData) {
-                    const audio = $('<audio>').attr({
-                        src: `data:audio/wav;base64,${audioData}`,
-                        controls: true,
-                        autoplay: true  // Tự động phát audio
-                    }).addClass('audio-player');
-                    div.append(audio);
-                }
                 $('#chat-messages').append(div);
                 $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
             }
 
+            // Gửi tin nhắn
             $('#send-btn').click(function() {
                 const msg = $('#user-input').val().trim();
                 if (msg) {
                     addMessage(msg, true);
                     $('#user-input').val('');
+
+                    // ✅ Gọi API GET /get?msg=xxx
                     $.get('/get', {msg: msg}, function(data) {
-                        addMessage(data.answer, false, data.audio);  // Truyền audio base64
+                        if (data.error) {
+                            addMessage("Lỗi: " + data.error, false);
+                        } else {
+                            addMessage(data.answer, false);
+                        }
+                    }).fail(function() {
+                        addMessage("❌ Lỗi kết nối server", false);
                     });
                 }
             });
 
+            // Enter = gửi
             $('#user-input').keypress(function(e) {
                 if (e.which == 13) $('#send-btn').click();
             });
 
+            // Nhận giọng nói
             $('#voice-btn').click(function() {
                 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
                 recognition.lang = 'vi-VN';
@@ -56,17 +67,9 @@
                 recognition.start();
             });
 
-            addMessage('Chào mừng đến VietGuiBot!', false);
+            // Tin nhắn chào mừng
+            addMessage('👋 Chào mừng đến VietGuiBot!', false);
         });
     </script>
-    <style>
-        #chat-container { max-width: 600px; margin: 20px auto; }
-        #chat-messages { height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-        .user-message { text-align: right; color: blue; }
-        .bot-message { text-align: left; color: green; }
-        #user-input { width: 70%; padding: 5px; }
-        button { padding: 5px 10px; margin-left: 5px; }
-        .audio-player { margin-top: 5px; }
-    </style>
 </body>
 </html>
