@@ -22,7 +22,7 @@ logger.info("Khởi động VietGuiBot...")
 async def async_init():
     qa_chain = init_rag(config)
     asr_model = await init_asr(config)
-    tts_model = await init_tts(config)
+    tts_model = await init_tts(config)  # Khởi tạo TTS
     return qa_chain, asr_model, tts_model
 
 loop = asyncio.get_event_loop()

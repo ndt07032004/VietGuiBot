@@ -9,6 +9,7 @@ import io
 import asyncio
 import os
 import json
+import base64
 
 app = FastAPI()
 
@@ -25,17 +26,35 @@ def create_app(config, qa_chain, asr_model, tts_model):
         with open('static/chat.html', 'r', encoding="utf-8") as f:
             return HTMLResponse(f.read())
 
-    # ✅ Sửa lại: trả JSON thay vì StreamingResponse
+    # ✅ Sửa lại: Thêm kiểm tra file tồn tại
     @app.get("/get")
     async def get_response(request: Request):
         msg = request.query_params.get("msg", "")
         if not msg:
             return JSONResponse({"error": "No message provided"})
-        response = generate_response(qa_chain, msg)
-         # ✅ Log input & output
+        
+        # Tạo response text từ LLM
+        response_text = generate_response(qa_chain, msg)
         logger.info(f"[GET] User: {msg}")
-        logger.info(f"[GET] Bot: {response}")
-        return JSONResponse({"answer": response})
+        logger.info(f"[GET] Bot text: {response_text}")
+
+        # Tạo audio từ response text
+        output_path = f"./audio/response_{hash(response_text)}.wav"
+        audio_path = await synthesize_speech(tts_model, response_text, output_path)
+        if not audio_path or not os.path.exists(audio_path):
+            logger.error(f"Audio file not created: {audio_path}")
+            return JSONResponse({"answer": response_text, "error": "Failed to generate audio"})
+
+        # Đọc file audio và encode base64
+        with open(audio_path, 'rb') as f:
+            audio_data = f.read()
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+
+        logger.info(f"[GET] Bot audio generated: {audio_path}")
+        return JSONResponse({
+            "answer": response_text,
+            "audio": audio_base64
+        })
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
@@ -68,7 +87,6 @@ def create_app(config, qa_chain, asr_model, tts_model):
         while True:
             data = await websocket.receive_json()
             input_text = data.get('message')
-            
             response = generate_response(qa_chain, input_text)
             await websocket.send_json({"chunk": response})
 

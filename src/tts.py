@@ -1,56 +1,31 @@
-from transformers import pipeline
-import torch
-import os
-import asyncio
+import numpy as np
 import soundfile as sf
 from src.logger import logger
 
-
-async def init_tts(config: dict):
-    """
-    Khởi tạo TTS pipeline từ HuggingFace.
-    Ưu tiên: facebook/mms-tts-vie (tiếng Việt) → fallback sang Bark.
-    """
-    model_name = config["tts"].get("model", "facebook/mms-tts-vie")
-    output_dir = config["tts"].get("output_dir", "outputs/tts")
-    os.makedirs(output_dir, exist_ok=True)
-
-    try:
-        logger.debug(f"🔊 Loading TTS model: {model_name}")
-        tts = pipeline(
-            "text-to-speech",
-            model=model_name,
-            device=0 if torch.cuda.is_available() else -1
-        )
-        logger.info(f"✅ Loaded TTS model: {model_name}")
-        return tts
-    except Exception as e:
-        logger.error(f"❌ Failed to load TTS model {model_name}: {e}")
-        # fallback sang Bark
-        if model_name != "suno/bark-small":
-            logger.info("👉 Falling back to Bark (suno/bark-small)")
-            config["tts"]["model"] = "suno/bark-small"
-            return await init_tts(config)
-        raise
-
-
 async def synthesize_speech(model, text: str, output_path: str) -> str:
     """
-    Tạo audio từ text tiếng Việt.
-    Lưu file .wav để phát ngay sau khi generate.
+    Tạo audio từ text tiếng Việt bằng HuggingFace TTS.
+    Fix lỗi ushort bằng chuẩn hóa float32 [-1,1].
     """
     try:
         logger.debug(f"🔊 Synthesizing speech for text: {text}")
         result = model(text)
 
-        # HuggingFace pipeline trả về mảng numpy chứa audio
+        # HF pipeline trả về numpy array
         audio = result["audio"]
         sampling_rate = result["sampling_rate"]
 
-        # lưu file wav
-        sf.write(output_path, audio, sampling_rate)
+        # Ép float32, loại NaN/Inf
+        audio = np.nan_to_num(audio, nan=0.0, posinf=0.0, neginf=0.0)
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio = audio / max_val  # normalize [-1,1]
+
+        # Ghi file wav an toàn
+        sf.write(output_path, audio.astype(np.float32), sampling_rate)
         logger.info(f"✅ TTS generated: {output_path}")
         return output_path
+
     except Exception as e:
         logger.error(f"TTS error: {e}")
         return None
