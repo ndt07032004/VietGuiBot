@@ -12,10 +12,12 @@ import uvicorn
 load_dotenv()
 
 logger = setup_logger("VietGuiBot")
-config_path = 'system.conf'
 
+
+config_path = 'system.conf'
 with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)
+
 
 logger.info("Khởi động VietGuiBot...")
 
